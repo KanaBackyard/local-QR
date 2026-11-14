@@ -23,19 +23,23 @@
 
 ## 安装
 
+### 下载 zip（推荐）
+
+到 [Releases](https://github.com/KanaBackyard/local-QR/releases/latest) 下载 `qr-local-1.0.0.zip`：
+
+1. 打开 `chrome://extensions`（Edge 为 `edge://extensions`）
+2. 右上角开启「开发者模式」
+3. 把 zip **直接拖入**页面；或解压后点「加载已解压的扩展程序」选择解压目录
+4. 工具栏出现蓝色二维码图标即安装成功
+
 ### 从源码加载
 
 1. 下载本仓库（`Code` → `Download ZIP`，或 `git clone`）
-2. 打开 `chrome://extensions`（Edge 为 `edge://extensions`）
-3. 右上角开启「开发者模式」
-4. 点「加载已解压的扩展程序」，选择**含 `manifest.json` 的那一层目录**
-5. 工具栏出现蓝色二维码图标即安装成功
+2. 打开 `chrome://extensions`
+3. 开启「开发者模式」→「加载已解压的扩展程序」
+4. 选择**含 `manifest.json` 的那一层目录**
 
-### 打包成 zip
-
-仓库根目录已附带构建好的 `qr-local-1.0.0.zip`，可直接下载后拖入 `chrome://extensions` 安装。
-
-自行打包时：
+### 自行打包
 
 ```bash
 zip -r qr-local-1.0.0.zip manifest.json background.js decode.js popup.html lib icons
