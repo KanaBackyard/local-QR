@@ -1,0 +1,16 @@
+# 系统 & 编辑器
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# 打包产物（仓库里只保留正式发布的那一个）
+*.zip
+!qr-local-*.zip
+*.crx
+*.pem
+
+# 临时/测试
+node_modules/
+*.log

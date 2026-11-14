@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>本地二维码识别</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    width: 306px;
+    margin: 0;
+    padding: 14px 16px 16px;
+    font: 13px/1.6 system-ui, "Segoe UI", "Microsoft YaHei", sans-serif;
+    color: #202124;
+    background: #fff;
+  }
+  h1 { font-size: 14px; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+  h1 img { width: 20px; height: 20px; }
+  ol { margin: 8px 0 12px; padding-left: 20px; }
+  li { margin: 3px 0; }
+  .note {
+    background: #f1f6ff;
+    border-left: 3px solid #1a73e8;
+    padding: 8px 10px;
+    border-radius: 4px;
+    color: #3c4043;
+    font-size: 12px;
+    margin-bottom: 10px;
+  }
+  .muted { color: #80868b; font-size: 12px; }
+  b { font-weight: 600; }
+</style>
+</head>
+<body>
+  <h1><img src="icons/icon48.png" alt="">本地二维码识别</h1>
+
+  <ol>
+    <li>在网页的<b>图片</b>上点击<b>右键</b></li>
+    <li>选择「识别图片中的二维码」</li>
+    <li>弹出结果面板后，自己决定怎么处理</li>
+  </ol>
+
+  <div class="note">
+    <b>不会自动跳转。</b><br>
+    识别到网址 → 点「打开链接」才跳；<br>
+    识别到其它内容 → 点「复制」拿走内容。
+  </div>
+
+  <p class="muted">
+    全部识别在本机完成，二维码图像不上传。图片太小时，先在页面上放大再右键。
+  </p>
+</body>
+</html>
