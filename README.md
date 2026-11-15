@@ -17,7 +17,7 @@ Chrome / Edge 扩展。在网页图片上右键识别二维码，全程本地计
 zip -r qr-local-1.3.0.zip manifest.json background.js decode.js popup.html lib icons
 ```
 
-zip 内路径分隔符必须是 `/`。用 PowerShell 的 `Compress-Archive` 会写成 `\`，Chrome 解压后找不到 `icons/icon16.png`。
+zip 内路径分隔符必须是 `/`。用 PowerShell 的 `Compress-Archive` 会写成 `\`，Chrome 解压后找不到 `icons/icon128.png`。
 
 ## 用法
 
@@ -80,7 +80,7 @@ background.js    Service Worker：菜单、解码编排、跳转校验
 decode.js        页面内解码器 + 结果面板（按需注入）
 popup.html       工具栏弹窗
 lib/jsQR.js      jsQR 1.4.0
-icons/           16/32/48/128
+icons/           只有 128，其余尺寸由 Chrome 缩放
 docs/            README 截图
 ```
 
