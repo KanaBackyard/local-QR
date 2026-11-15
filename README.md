@@ -2,8 +2,6 @@
 
 Chrome / Edge 扩展。在网页图片上右键识别二维码，全程本地计算，图像不上传。
 
-识别结果按内容分三种，面板长得不一样：
-
 | 整段就是一个链接 | 文字里夹着链接 | 纯文字 |
 |---|---|---|
 | ![](docs/panel-url.png) | ![](docs/panel-mixed.png) | ![](docs/panel-text.png) |
