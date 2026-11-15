@@ -25,7 +25,7 @@
 
 ### 下载 zip（推荐）
 
-到 [Releases](https://github.com/KanaBackyard/local-QR/releases/latest) 下载 `qr-local-1.0.0.zip`：
+到 [Releases](https://github.com/KanaBackyard/local-QR/releases/latest) 下载 `qr-local-1.1.0.zip`：
 
 1. 打开 `chrome://extensions`（Edge 为 `edge://extensions`）
 2. 右上角开启「开发者模式」
@@ -42,7 +42,7 @@
 ### 自行打包
 
 ```bash
-zip -r qr-local-1.0.0.zip manifest.json background.js decode.js popup.html lib icons
+zip -r qr-local-1.1.0.zip manifest.json background.js decode.js popup.html lib icons
 ```
 
 > 注意：zip 内的路径分隔符必须是 `/`。用 Windows PowerShell 的 `Compress-Archive`
@@ -79,6 +79,24 @@ zip -r qr-local-1.0.0.zip manifest.json background.js decode.js popup.html lib i
    此时用 `captureVisibleTab` 截图，按元素 `getBoundingClientRect` 裁剪出该图区域再解码
 3. 解码统一交给 [jsQR](https://github.com/cozmo/jsQR)（纯 JS，无 WASM、无网络）
 
+### 图像预处理
+
+jsQR 直接吃原始像素时，对彩色渐变、圆点风、模块过细或留白过多的二维码容易失败。
+`decode.js` 因此改为“按代价递增、命中即止”的多级策略：
+
+| 级别 | 处理 | 解决的情况 |
+|---|---|---|
+| 1 | 原始像素 | 普通清晰二维码，一步命中 |
+| 2 | `min`/`lum` 通道 + 自适应阈值阶梯 | 彩色、渐变底、低对比度 |
+| 3 | 小图放大 2 倍 | 图片显示尺寸太小，模块粘连 |
+| 4 | **规范化**：裁留白 → 补静区 → 统一尺寸 | 二维码只占大图一角；高清图模块过细 |
+| 5 | 原尺寸按墨迹包围盒裁剪 | 小码贴在大片留白中 |
+| 6 | 轻微模糊后再自适应 | 圆点/菱形模块需要先糊成块 |
+| 7 | `sat`/`max` 通道、Otsu 全局阈值 | 单色块底、反色二维码 |
+
+自适应阈值用积分图实现，窗口半径按图片边长百分比取多档（×0.75 ~ ×3），
+避免窗口太小把单个模块整个吃掉、或太大退化成全局阈值。
+
 识别结果通过 Shadow DOM 渲染面板，不受目标页面 CSS 影响。
 
 ### 安全处理
@@ -93,7 +111,8 @@ zip -r qr-local-1.0.0.zip manifest.json background.js decode.js popup.html lib i
 
 - `chrome://`、扩展商店等页面禁止注入脚本，只能靠图标角标提示
 - 跨域图片位于**子 iframe** 中时无法截图裁剪（坐标系不同），会提示失败
-- 二维码模块过小（约 < 1.5 像素/模块）时无法识别，先放大图片再试
+- 二维码被裁掉角（缺定位图案）或遮挡面积过大时无法识别
+- 二维码模块低于约 1.5 像素/模块时无法识别，先放大图片再试
 - 一张图有多个二维码时只返回第一个
 
 ## 开发
