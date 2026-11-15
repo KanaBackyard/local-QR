@@ -5,7 +5,10 @@
  *   1. 页面 canvas 直读像素     —— 同源图 / 带 CORS 头的图，最快且无损
  *   2. 整页截图 → 裁剪该图区域  —— 跨域图（canvas 会被污染）时的兜底
  *
- * 识别到 http(s) 链接 → 当前标签页跳转；其它内容 → 页面内提示并复制，绝不跳转。
+ * 识别成功后一律弹出结果面板，绝不自动跳转。面板按内容分三种情况：
+ *   1. 整段就是一个链接 —— 打开链接 / 复制
+ *   2. 文字里夹着链接   —— 链接渲染成超链接，打开链接 / 复制全部文字
+ *   3. 纯文字没有链接   —— 只提供复制
  *
  * 权限说明：只用 contextMenus / activeTab / scripting，不申请 host_permissions，
  * 因此扩展在任何页面都不会自动获得读取权限，只在用户点右键菜单那一刻生效。
@@ -155,15 +158,15 @@ async function handleScan(info, tab) {
     }
 
     const text = String(res.text).trim();
-    const isUrl = isHttpUrl(text);
 
-    // 不自动跳转：统一弹出结果面板，由用户决定「打开链接」还是「复制」
+    // 不自动跳转：统一弹出结果面板。
+    // 面板自己解析内容属于「纯链接 / 文字夹链接 / 纯文字」哪种，据此决定按钮与超链接渲染。
     try {
       await runInFrame(
         tabId,
         frameId,
-        (t, u) => window.__QR__.showResult(t, u),
-        [text, isUrl],
+        (t) => window.__QR__.showResult(t),
+        [text],
       );
     } catch {
       // 极少数页面注入被拦，降级为复制 + 提示

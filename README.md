@@ -14,10 +14,18 @@
 ## 功能
 
 - 右键任意图片 → 「识别图片中的二维码」
-- 识别出 `http(s)` 网址：点「打开链接」才跳转当前标签页
-- 识别出其它内容（纯文本、WiFi 配置、vCard 等）：点「复制」写入剪贴板
+- 结果面板按内容分三种情况，按钮也跟着变：
+
+  | 识别内容 | 正文渲染 | 按钮 |
+  |---|---|---|
+  | 整段就是一个链接 | 纯文本 | 打开链接 · 复制 · 关闭 |
+  | 文字里夹着链接 | 链接渲染成可点超链接 | 打开链接 · 复制全部文字 · 关闭 |
+  | 纯文字，没有链接 | 纯文本 | 复制 · 关闭 |
+
+- 「打开链接」点一下才跳转当前标签页，绝不自动跳
+- 「复制」写入剪贴板（混排时复制的是整段原文，不是渲染后的 DOM 文本）
 - 同时支持正片与**反色**二维码（深底浅码）
-- 小图自动放大重试；网页上显示得再小，解码也用原图分辨率
+- 彩色渐变底、圆点/菱形模块、小图、高清截图都能识别（见下方「图像预处理」）
 - 跨域图片（canvas 被污染）自动退化为截图裁剪解码
 - 面板可用 ✕ / 点击遮罩 / `Esc` 关闭，内容可鼠标选中
 
@@ -25,7 +33,7 @@
 
 ### 下载 zip（推荐）
 
-到 [Releases](https://github.com/KanaBackyard/local-QR/releases/latest) 下载 `qr-local-1.1.0.zip`：
+到 [Releases](https://github.com/KanaBackyard/local-QR/releases/latest) 下载 `qr-local-1.2.0.zip`：
 
 1. 打开 `chrome://extensions`（Edge 为 `edge://extensions`）
 2. 右上角开启「开发者模式」
@@ -42,7 +50,7 @@
 ### 自行打包
 
 ```bash
-zip -r qr-local-1.1.0.zip manifest.json background.js decode.js popup.html lib icons
+zip -r qr-local-1.2.0.zip manifest.json background.js decode.js popup.html lib icons
 ```
 
 > 注意：zip 内的路径分隔符必须是 `/`。用 Windows PowerShell 的 `Compress-Archive`
@@ -57,9 +65,18 @@ zip -r qr-local-1.1.0.zip manifest.json background.js decode.js popup.html lib i
 
 | 按钮 | 行为 |
 |---|---|
-| 打开链接 | 仅当内容是 `http(s)` 网址时出现；点击后跳转当前标签页 |
-| 复制 | 写入剪贴板（`navigator.clipboard` → `execCommand` 两级降级） |
+| 打开链接 | 仅当内容里含有 `http(s)` 链接时出现；有多个链接时打开第一个；点击后跳转当前标签页 |
+| 复制 / 复制全部文字 | 写入剪贴板（`navigator.clipboard` → `execCommand` 两级降级）。混排时复制整段原文 |
 | 关闭 | 或点遮罩空白 / 按 `Esc` |
+
+### 链接识别规则
+
+只把 `http://` 和 `https://` 开头的文本当作链接，`javascript:`、`data:`、`file:` 等伪协议
+既不渲染成超链接，也不会被「打开链接」接受。
+
+链接在遇到空白、引号、尖括号、中文或全角标点时截断，所以
+`详情见（https://example.com/a?b=1）谢谢` 只会把括号内的部分变成链接，
+句末的 `）谢谢` 留在正文里。
 
 ## 权限
 
@@ -101,11 +118,14 @@ jsQR 直接吃原始像素时，对彩色渐变、圆点风、模块过细或留
 
 ### 安全处理
 
-「打开链接」不是 `<a href>`，而是把 URL 发给后台由后台再校验一次：
+跳转不靠 `<a href>` 直接导航，而是把 URL 发给后台，由后台再校验一次：
 
 - 只放行 `http(s)://` 且不含空白的 URL
 - `javascript:` / `data:` / `file:` 一律拒绝
 - 在 iframe 中识别也能跳转顶层标签页
+
+面板里的超链接虽然带 `href`，但点击事件会 `preventDefault()` 并走同一条后台校验路径，
+这样既保留「中键/Ctrl+点击」的原生提示，又不会绕过校验。
 
 ## 已知边界
 

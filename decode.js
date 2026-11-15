@@ -430,6 +430,30 @@
     };
   }
 
+  /**
+   * 在一段文本里找出所有 http(s) 链接（只认 http/https，天生排除 javascript:、data:）。
+   *
+   * URL 正文里不允许出现空白、引号尖括号，也不允许出现中文和全角符号——
+   * 二维码里常见的「详情见（https://...）谢谢」如果把这些字符吃进链接，
+   * 点开就会带着 `）谢谢` 一起跳转。中文域名/路径按规范应做百分号编码，
+   * 所以这里直接截断是安全的。
+   */
+  const URL_PATTERN = /https?:\/\/[^\s<>"'`\u3000-\u303F\u4E00-\u9FFF\uFF00-\uFFEF]+/gi;
+  const TRAILING_PUNCT = /[.,;:!?)\]}>'"''""''、。，；：！？）】》」』…]+$/;
+
+  function findLinks(text) {
+    const links = [];
+    URL_PATTERN.lastIndex = 0;
+    let match;
+    while ((match = URL_PATTERN.exec(text)) !== null) {
+      let url = match[0];
+      while (url && TRAILING_PUNCT.test(url)) url = url.slice(0, -1);
+      if (!url) continue;
+      links.push({ start: match.index, end: match.index + url.length, url });
+    }
+    return links;
+  }
+
   function drawToImageData(source, sw, sh) {
     const scale = Math.min(1, MAX_SIDE / Math.max(sw, sh));
     const w = Math.max(1, Math.round(sw * scale));
@@ -554,13 +578,24 @@
     },
 
     /**
-     * 识别结果面板：弹窗展示内容，不自动跳转。
-     *  - 网址：显示「打开链接」按钮，用户点击后才跳转
-     *  - 非网址：只提供「复制」
+     * 识别结果面板：弹窗展示内容，不自动跳转。按内容分三种情况：
+     *  1. 整段就是一个链接 —— 按钮：打开链接 / 复制
+     *  2. 文字里夹着链接 —— 正文把链接渲染成可点的超链接；按钮：打开链接（首个）/ 复制全部文字
+     *  3. 纯文字没有链接 —— 只给「复制」
      * @param {string} text 识别到的内容
-     * @param {boolean} isUrl 是否是可跳转的 http(s) 网址
+     * @param {boolean} isUrl 兼容旧调用：整段是否为 http(s) 链接
      */
     showResult(text, isUrl) {
+      const raw = String(text ?? '');
+      const links = findLinks(raw);
+      // 整段（去掉首尾空白和结尾标点后）恰好等于一个链接，才算「纯链接」。
+      const trimmed = raw.trim();
+      const pure = links.length === 1 && links[0].start === raw.indexOf(trimmed) &&
+        links[0].end === raw.indexOf(trimmed) + trimmed.length
+        ? links[0].url
+        : (isUrl && /^https?:\/\/\S+$/i.test(trimmed) ? trimmed : null);
+      const mixed = !pure && links.length > 0;
+
       const oldHost = document.getElementById('__qr_panel_host__');
       if (oldHost) oldHost.remove();
 
@@ -617,7 +652,6 @@
       const body = document.createElement('div');
       body.style.cssText = 'padding:0 16px 4px;overflow:auto;';
       const pre = document.createElement('div');
-      pre.textContent = text;
       pre.style.cssText = [
         'white-space:pre-wrap',
         'word-break:break-all',
@@ -630,6 +664,31 @@
         'max-height:34vh',
         'overflow:auto',
       ].join(';');
+
+      if (mixed) {
+        // 文字与链接混排：把每个链接渲染成可点超链接，其余原样保留。
+        let cursor = 0;
+        for (const link of links) {
+          if (link.start > cursor) pre.appendChild(document.createTextNode(raw.slice(cursor, link.start)));
+          const a = document.createElement('a');
+          a.textContent = link.url;
+          a.href = link.url;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          a.title = link.url;
+          a.style.cssText = 'color:#1a73e8;text-decoration:underline;cursor:pointer;';
+          // 点击交给后台跳当前标签页，保持在同一个 tab 而不是新开一堆。
+          a.addEventListener('click', (e) => {
+            e.preventDefault();
+            openUrl(link.url);
+          });
+          pre.appendChild(a);
+          cursor = link.end;
+        }
+        if (cursor < raw.length) pre.appendChild(document.createTextNode(raw.slice(cursor)));
+      } else {
+        pre.textContent = raw;
+      }
       body.appendChild(pre);
 
       // 状态行
@@ -660,8 +719,12 @@
         return b;
       };
 
-      const copyBtn = mkBtn('复制');
-      const openBtn = isUrl ? mkBtn('打开链接', true) : null;
+      const hasLink = Boolean(pure) || mixed;
+      const openTarget = pure || (mixed ? links[0].url : null);
+      const copyLabel = mixed ? '复制全部文字' : '复制';
+
+      const copyBtn = mkBtn(copyLabel, false);
+      const openBtn = hasLink ? mkBtn('打开链接', true) : null;
       const cancelBtn = mkBtn('关闭');
 
       if (openBtn) foot.appendChild(openBtn);
@@ -688,6 +751,16 @@
         host.remove();
       }
 
+      function openUrl(url) {
+        closePanel();
+        try {
+          // 交给后台做 tabs.update，iframe 里触发也能跳顶层
+          chrome.runtime.sendMessage({ type: 'qr-open-url', url });
+        } catch {
+          location.href = url;
+        }
+      }
+
       close.addEventListener('click', closePanel);
       cancelBtn.addEventListener('click', closePanel);
 
@@ -698,25 +771,17 @@
 
       window.addEventListener('keydown', onKey, true);
 
-      // 复制
+      // 复制：混排时复制整段原文，不复制渲染后的 DOM 文本，避免丢换行
       copyBtn.addEventListener('click', async () => {
-        const ok = await copyText(text);
+        const ok = await copyText(raw);
+        status.style.color = ok ? '#1a73e8' : '#b3261e';
         status.textContent = ok ? '已复制到剪贴板' : '复制失败，请手动选中上方内容复制';
-        if (!ok) status.style.color = '#b3261e';
-        else setTimeout(() => { if (status.isConnected) status.textContent = ''; }, 1800);
+        if (ok) setTimeout(() => { if (status.isConnected) status.textContent = ''; }, 1800);
       });
 
       // 打开链接（用户点击才跳转）
       if (openBtn) {
-        openBtn.addEventListener('click', () => {
-          closePanel();
-          try {
-            // 交给后台做 tabs.update，iframe 里触发也能跳顶层
-            chrome.runtime.sendMessage({ type: 'qr-open-url', url: text });
-          } catch {
-            location.href = text;
-          }
-        });
+        openBtn.addEventListener('click', () => openUrl(openTarget));
       }
 
       async function copyText(value) {
